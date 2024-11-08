@@ -9,7 +9,7 @@ from nonebot.adapters import Event
 from .server import APP
 from .config import Config
 from .config import pam_config
-from .checker import COMMAND_RULE
+from .checker import plugin_check
 from .checker import global_check
 
 
@@ -42,30 +42,13 @@ async def _(
         return
 
     if result := await global_check(bot=bot, event=event, matcher=matcher, state=state):
-        if result.message:
-            await bot.send(event=event, message=result.message)
+        if result.reason:
+            await bot.send(event=event, message=result.reason)
         raise result
 
-    if plugin not in COMMAND_RULE:
-        return
-    if not (_prefix := state.get("_prefix", None)):
-        return
-    if not (_command := _prefix.get("command", None)):
-        return
-
-    plugin = COMMAND_RULE[plugin]
-
-    if result := await plugin["__all__"](
-        bot=bot, event=event, matcher=matcher, state=state
+    if result := await plugin_check(
+        plugin=plugin, bot=bot, event=event, matcher=matcher, state=state
     ):
-        if result.message:
-            await bot.send(event=event, message=result.message)
-        raise result
-    if _command[0] not in plugin:
-        return
-    if result := await plugin[_command[0]](
-        bot=bot, event=event, matcher=matcher, state=state
-    ):
-        if result.message:
-            await bot.send(event=event, message=result.message)
+        if result.reason:
+            await bot.send(event=event, message=result.reason)
         raise result
