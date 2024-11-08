@@ -107,7 +107,10 @@ class Checker:
                     slice=ast.Constant(value=node.id),
                     ctx=node.ctx,
                 )
-                ret.marked = True
+                if not hasattr(__builtins__, node.id) or node.id in {
+                    "re",
+                }:
+                    ret.marked = True
                 return ret
 
         code = ast.Interactive(
@@ -198,15 +201,32 @@ class Checker:
     def __call__(
         self, bot: Bot, event: Event, state: T_State, *args, plugin: dict = {}, **kwargs
     ) -> Coroutine[Any, Any, IgnoredException | None]:
+        _limit = Bucket()
+        _buid = f"{event.get_user_id()}_{plugin['name']}_{plugin['command']}"
         _kwargs = {
             "bot": AwaitAttrDict(bot),
+            "bucket": AwaitAttrDict(
+                {
+                    "uid": _buid,
+                    "bucket": functools.partial(
+                        _limit.bucket,
+                        _buid,
+                    ),
+                    "status": functools.partial(
+                        _limit.status,
+                        _buid,
+                    ),
+                }
+            ),
             "event": AwaitAttrDict(event),
             "state": AwaitAttrDict(state),
             "user": AwaitAttrDict({"id": event.get_user_id()}),
             "group": AwaitAttrDict(),
             "plugin": AwaitAttrDict(plugin),
-            "re": AwaitAttrDict(__import__("re")),
+            "re": __import__("re"),
             "limit": AwaitAttrDict(Bucket()),
+            "int": int,
+            "str": str,
         }
 
         async def call_api(bot: Bot, api: str, data: dict, key: str = ""):
@@ -217,9 +237,12 @@ class Checker:
         async def wrapper() -> None | IgnoredException:
             try:
                 from nonebot.adapters.onebot.v11 import GroupMessageEvent as V11GME
+                from nonebot.adapters.onebot.v11 import MessageEvent as V11ME
+
+                if isinstance(event, V11ME):
+                    _kwargs["user"].name = event.sender.nickname
 
                 if isinstance(event, V11GME):
-
                     _kwargs["group"] = AwaitAttrDict(
                         {
                             "id": event.group_id,
@@ -231,7 +254,17 @@ class Checker:
                             ),
                         }
                     )
-                    _kwargs["user"].name = event.sender.nickname
+
+                    async def get_name() -> str | None:
+                        r = await bot.get_group_member_info(
+                            group_id=event.group_id, user_id=event.sender.user_id
+                        )
+                        if r["card"]:
+                            return r["card"]
+                        return event.sender.nickname
+
+                    _kwargs["user"].name = get_name()
+
             except ImportError:
                 pass
 

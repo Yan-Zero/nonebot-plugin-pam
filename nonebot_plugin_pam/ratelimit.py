@@ -46,8 +46,13 @@ class Bucket:
     def status(self, key) -> float:
         """返回剩余时间等待时间。单位 s"""
         __now__ = datetime.now()
-        return max(
-            self.__rate__[key] - (__now__ - self.__time__.get(key, __now__)).seconds, 0
+        return (
+            max(
+                self.__rate__[key]
+                - (__now__ - self.__time__.get(key, __now__)).microseconds,
+                0,
+            )
+            / 1000.0
         )
 
     async def register(self, key, max: int) -> None:
