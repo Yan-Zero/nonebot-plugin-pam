@@ -1,5 +1,6 @@
 import ast
 import pathlib
+import warnings
 import itertools
 import functools
 
@@ -15,21 +16,49 @@ from nonebot.adapters import Bot
 from nonebot.adapters import Event
 from nonebot.exception import IgnoredException
 
+from .ratelimit import Bucket
 
-class AwaitAttrDict(dict):
+
+class AwaitAttrDict:
+    obj: Any
+
     def __getattr__(self, name):
         async def _(d):
             return d
 
         try:
-            if isinstance(ret := self[name], Coroutine):
+            if hasattr(self.obj, name):
+                ret = getattr(self.obj, name)
+            else:
+                ret = self[name]
+            if isinstance(ret, Coroutine):
+                return ret
+            elif isinstance(ret, Callable):
                 return ret
             return _(ret)
         except KeyError:
             return _(None)
 
     def __setattr__(self, name, value):
-        self[name] = value
+        if isinstance(self.obj, dict):
+            self.obj[name] = value
+        else:
+            self.obj.__dict__[name] = value
+
+    def __getitem__(self, key):
+        if isinstance(self.obj, dict):
+            return self.obj[key]
+        else:
+            return self.obj.__dict__[key]
+
+    def __setitem__(self, key, value):
+        if isinstance(self.obj, dict):
+            self.obj[key] = value
+        else:
+            self.obj.__dict__[key] = value
+
+    def __init__(self, obj: Any = None) -> None:
+        super().__setattr__("obj", obj or {})
 
 
 class Checker:
@@ -65,15 +94,21 @@ class Checker:
                 super().generic_visit(node)
                 if hasattr(node, "marked"):
                     return node
-                return ast.Await(value=node)
+                if isinstance(node.value, ast.Subscript) and hasattr(
+                    node.value, "marked"
+                ):
+                    return ast.Await(value=node)
+                return node
 
             def visit_Name(self, node):
                 super().generic_visit(node)
-                return ast.Subscript(
+                ret = ast.Subscript(
                     value=ast.Name(id="kwargs", ctx=ast.Load()),
                     slice=ast.Constant(value=node.id),
                     ctx=node.ctx,
                 )
+                ret.marked = True
+                return ret
 
         code = ast.Interactive(
             body=[
@@ -161,15 +196,17 @@ class Checker:
         self.reason_code = _["_"]
 
     def __call__(
-        self, bot: Bot, event: Event, state: T_State, *args, **kwargs
+        self, bot: Bot, event: Event, state: T_State, *args, plugin: dict = {}, **kwargs
     ) -> Coroutine[Any, Any, IgnoredException | None]:
         _kwargs = {
-            "bot": AwaitAttrDict(bot.__dict__),
-            "event": AwaitAttrDict(event.__dict__),
+            "bot": AwaitAttrDict(bot),
+            "event": AwaitAttrDict(event),
             "state": AwaitAttrDict(state),
             "user": AwaitAttrDict({"id": event.get_user_id()}),
             "group": AwaitAttrDict(),
-            "plugin": AwaitAttrDict(kwargs.get("plugin")),
+            "plugin": AwaitAttrDict(plugin),
+            "re": AwaitAttrDict(__import__("re")),
+            "limit": AwaitAttrDict(Bucket()),
         }
 
         async def call_api(bot: Bot, api: str, data: dict, key: str = ""):
@@ -194,6 +231,7 @@ class Checker:
                             ),
                         }
                     )
+                    _kwargs["user"].name = event.sender.nickname
             except ImportError:
                 pass
 
@@ -231,8 +269,25 @@ def reload() -> None:
                 for checker in checkers:
                     if not isinstance(checker, dict):
                         continue
+
+                    rule = " and ".join(
+                        _
+                        for _ in [
+                            f'({checker["rule"]})' if "rule" in checker else "",
+                            (
+                                f'({checker["ratelimit"]})'
+                                if "ratelimit" in checker
+                                else ""
+                            ),
+                        ]
+                        if _
+                    )
+                    if not rule:
+                        warnings.warn(f"规则为空: {file} {command}")
+                        continue
+
                     COMMAND_RULE[file.stem][command].append(
-                        Checker(rule=checker["rule"], reason=checker.get("reason", ""))
+                        Checker(rule=rule, reason=checker.get("reason", ""))
                     )
 
     for file in pathlib.Path("./data/pam").glob("*/*.yaml"):
@@ -253,27 +308,52 @@ def reload() -> None:
                 for checker in checkers:
                     if not isinstance(checker, dict):
                         continue
+
+                    rule = " and ".join(
+                        _
+                        for _ in [
+                            f'({checker["rule"]})' if "rule" in checker else "",
+                            (
+                                f'({checker["ratelimit"]})'
+                                if "ratelimit" in checker
+                                else ""
+                            ),
+                        ]
+                        if _
+                    )
+                    if not rule:
+                        warnings.warn(f"规则为空: {file} {command}")
+                        continue
+
                     COMMAND_RULE[plugin][command].append(
-                        Checker(rule=checker["rule"], reason=checker.get("reason", ""))
+                        Checker(
+                            rule=rule,
+                            reason=checker.get("reason", ""),
+                        )
                     )
 
 
 async def plugin_check(
-    plugin: str, state: T_State, *args, plugin_info={}, **kwargs
+    plugin: str, state: T_State, *args, plugin_info=None, **kwargs
 ) -> IgnoredException | None:
     if plugin not in COMMAND_RULE:
         return None
     command = state.get("_prefix", {}).get("command", None)
     command = command[0] if command else "__all__"
+    if not plugin_info:
+        plugin_info = {}
+    plugin_info["command"] = command
 
-    for checker in itertools.chain(
-        *(
-            COMMAND_RULE[plugin].get(c, [])
-            for c in itertools.chain({"__all__", command})
-        )
-    ):
-        if ret := await checker(state=state, plugin=plugin_info, *args, **kwargs):
-            return ret
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        for checker in itertools.chain(
+            *(
+                COMMAND_RULE[plugin].get(c, [])
+                for c in itertools.chain({"__all__", command})
+            )
+        ):
+            if ret := await checker(state=state, plugin=plugin_info, *args, **kwargs):
+                return ret
 
 
 reload()
