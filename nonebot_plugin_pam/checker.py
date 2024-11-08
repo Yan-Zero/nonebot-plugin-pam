@@ -55,11 +55,20 @@ class Checker:
 
     def compile(self) -> None:
         class Attri2Await(ast.NodeTransformer):
+            def visit_Call(self, node):
+                if isinstance(node.func, ast.Attribute):
+                    node.func.marked = True
+                super().generic_visit(node)
+                return node
+
             def visit_Attribute(self, node):
+                super().generic_visit(node)
+                if hasattr(node, "marked"):
+                    return node
                 return ast.Await(value=node)
 
-        class Name2Subscript(ast.NodeTransformer):
             def visit_Name(self, node):
+                super().generic_visit(node)
                 return ast.Subscript(
                     value=ast.Name(id="kwargs", ctx=ast.Load()),
                     slice=ast.Constant(value=node.id),
@@ -82,11 +91,7 @@ class Checker:
                         ast.Return(
                             value=Attri2Await()
                             .visit(
-                                Name2Subscript().visit(
-                                    ast.parse(
-                                        self.rule, filename="Checker", mode="single"
-                                    )
-                                )
+                                ast.parse(self.rule, filename="Checker", mode="single")
                             )
                             .body[0]
                             .value
@@ -127,12 +132,10 @@ class Checker:
                         ast.Return(
                             value=Attri2Await()
                             .visit(
-                                Name2Subscript().visit(
-                                    ast.parse(
-                                        f"f{repr(self.reason)}",
-                                        filename="f-string",
-                                        mode="single",
-                                    )
+                                ast.parse(
+                                    f"f{repr(self.reason)}",
+                                    filename="f-string",
+                                    mode="single",
                                 )
                             )
                             .body[0]
@@ -166,6 +169,7 @@ class Checker:
             "state": AwaitAttrDict(state),
             "user": AwaitAttrDict({"id": event.get_user_id()}),
             "group": AwaitAttrDict(),
+            "plugin": AwaitAttrDict(kwargs.get("plugin")),
         }
 
         async def call_api(bot: Bot, api: str, data: dict, key: str = ""):
@@ -212,7 +216,9 @@ def reload() -> None:
         },
     }
     for file in pathlib.Path("./data/pam").glob("*.yaml"):
-        COMMAND_RULE[file.stem] = {}
+        COMMAND_RULE[file.stem] = {
+            "__all__": [],
+        }
 
         with open(file, "r", encoding="utf-8") as f:
             _data: dict[str, list[dict[str, str]]] = yaml.safe_load(f)
@@ -226,13 +232,15 @@ def reload() -> None:
                     if not isinstance(checker, dict):
                         continue
                     COMMAND_RULE[file.stem][command].append(
-                        Checker(rule=checker["rule"], reason=checker["reason"])
+                        Checker(rule=checker["rule"], reason=checker.get("reason", ""))
                     )
 
-    for file in pathlib.Path("./data/pam").glob("*.yaml"):
+    for file in pathlib.Path("./data/pam").glob("*/*.yaml"):
         plugin = file.parent.stem
         if plugin not in COMMAND_RULE:
-            COMMAND_RULE[plugin] = {}
+            COMMAND_RULE[plugin] = {
+                "__all__": [],
+            }
 
         with open(file, "r", encoding="utf-8") as f:
             _data: dict[str, list[dict[str, str]]] = yaml.safe_load(f)
@@ -246,24 +254,25 @@ def reload() -> None:
                     if not isinstance(checker, dict):
                         continue
                     COMMAND_RULE[plugin][command].append(
-                        Checker(rule=checker["rule"], reason=checker["reason"])
+                        Checker(rule=checker["rule"], reason=checker.get("reason", ""))
                     )
 
 
 async def plugin_check(
-    plugin: str, state: T_State, *args, **kwargs
+    plugin: str, state: T_State, *args, plugin_info={}, **kwargs
 ) -> IgnoredException | None:
     if plugin not in COMMAND_RULE:
         return None
+    command = state.get("_prefix", {}).get("command", None)
+    command = command[0] if command else "__all__"
+
     for checker in itertools.chain(
         *(
-            COMMAND_RULE[plugin][c]
-            for c in itertools.chain(
-                {"__all__", state.get("_prefix", {}).get("_command", "__all__")}
-            )
+            COMMAND_RULE[plugin].get(c, [])
+            for c in itertools.chain({"__all__", command})
         )
     ):
-        if ret := await checker(state=state, *args, **kwargs):
+        if ret := await checker(state=state, plugin=plugin_info, *args, **kwargs):
             return ret
 
 

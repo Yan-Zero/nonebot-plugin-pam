@@ -40,14 +40,22 @@ async def _(
     plugin = matcher.plugin_id
     if plugin is None or plugin == __name__:
         return
+    plugin_info = {"name": plugin}
 
-    if result := await global_check(bot=bot, event=event, matcher=matcher, state=state):
+    if result := await global_check(
+        bot=bot, event=event, matcher=matcher, state=state, plugin_info=plugin_info
+    ):
         if result.reason:
             await bot.send(event=event, message=result.reason)
         raise result
 
     if result := await plugin_check(
-        plugin=plugin, bot=bot, event=event, matcher=matcher, state=state
+        plugin=plugin,
+        bot=bot,
+        event=event,
+        matcher=matcher,
+        state=state,
+        plugin_info=plugin_info,
     ):
         if result.reason:
             await bot.send(event=event, message=result.reason)
