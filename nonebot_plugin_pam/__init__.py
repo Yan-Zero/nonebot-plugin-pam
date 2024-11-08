@@ -1,16 +1,20 @@
 from nonebot import get_driver
+from nonebot import on_command
 from nonebot.typing import T_State
 from nonebot.plugin import PluginMetadata
 from nonebot.matcher import Matcher
 from nonebot.message import run_preprocessor
 from nonebot.adapters import Bot
 from nonebot.adapters import Event
+from nonebot.permission import SUPERUSER
 
-from .server import APP
 from .config import Config
-from .config import pam_config
+from .checker import reload
 from .checker import plugin_check
 from .checker import global_check
+
+# from .server import APP
+# from .config import pam_config
 
 
 __plugin_meta__ = PluginMetadata(
@@ -22,6 +26,18 @@ __plugin_meta__ = PluginMetadata(
     config=Config,
     supported_adapters=None,
 )
+
+
+@on_command(
+    (
+        "pam",
+        "reload",
+    ),
+    permission=SUPERUSER,
+).handle()
+async def _(bot: Bot, event: Event):
+    reload()
+    await bot.send(event=event, message="已重新加载规则。")
 
 
 @get_driver().on_startup

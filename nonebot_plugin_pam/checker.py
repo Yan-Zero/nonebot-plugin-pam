@@ -339,10 +339,10 @@ async def plugin_check(
     if plugin not in COMMAND_RULE:
         return None
     command = state.get("_prefix", {}).get("command", None)
-    command = command[0] if command else "__all__"
     if not plugin_info:
         plugin_info = {}
     plugin_info["command"] = command
+    command = command[0] if command else "__all__"
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
