@@ -63,10 +63,11 @@ __all__:
 
 - bot
 - event
+- state
+- message
 - limit
 - group
 - plugin
-- state
 - user
 - bucket
 
@@ -90,6 +91,10 @@ __all__:
 ### state
 
 对 T_State 的包装，大概的区别就是可以 state._prefix 这么用。
+
+### message
+
+event.get_plaintext()，没啥差别。
 
 ### bucket
 
@@ -115,6 +120,7 @@ Onebot V11 专属：
 
 - name: 插件名字，str
 - command: 当前执行的命令，tuple[str] | None
+- bucket: 属于当前插件的桶（对应用户），limit
 
 ### limit
 

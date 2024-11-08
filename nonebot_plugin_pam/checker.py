@@ -17,49 +17,8 @@ from nonebot.adapters import Event
 from nonebot.exception import IgnoredException
 from nonebot.permission import SUPERUSER
 
+from .utils import AwaitAttrDict
 from .ratelimit import Bucket
-
-
-class AwaitAttrDict:
-    obj: Any
-
-    def __getattr__(self, name):
-        async def _(d):
-            return d
-
-        try:
-            if hasattr(self.obj, name):
-                ret = getattr(self.obj, name)
-            else:
-                ret = self[name]
-            if isinstance(ret, Coroutine):
-                return ret
-            elif isinstance(ret, Callable):
-                return ret
-            return _(ret)
-        except KeyError:
-            return _(None)
-
-    def __setattr__(self, name, value):
-        if isinstance(self.obj, dict):
-            self.obj[name] = value
-        else:
-            self.obj.__dict__[name] = value
-
-    def __getitem__(self, key):
-        if isinstance(self.obj, dict):
-            return self.obj[key]
-        else:
-            return self.obj.__dict__[key]
-
-    def __setitem__(self, key, value):
-        if isinstance(self.obj, dict):
-            self.obj[key] = value
-        else:
-            self.obj.__dict__[key] = value
-
-    def __init__(self, obj: Any = None) -> None:
-        super().__setattr__("obj", obj or {})
 
 
 class Checker:
@@ -72,8 +31,20 @@ class Checker:
     """生成错误提示，并发送给用户。"""
     rule: str
     """匹配的规则。True或者其他什么等价的，就抛出 IgnoredException。"""
+    ratelimit: str
+    """限速。True或者其他什么等价的，就抛出 IgnoredException。"""
 
-    def __init__(self, rule: str, reason: str, **kwargs) -> None:
+    gen: dict
+    """机器生成用来标记的，为空则表示处于高级模式（必须手动到./data/pam下面修改）"""
+
+    def __init__(
+        self,
+        rule: str,
+        ratelimit: str = "",
+        reason: str = "",
+        gen: dict = None,
+        **kwargs,
+    ) -> None:
         """
         Args:
             checker: 检查的代码。
@@ -81,6 +52,8 @@ class Checker:
         """
         self.reason = reason
         self.rule = rule
+        self.ratelimit = ratelimit
+        self.gen = gen or {}
         self.compile()
 
     def compile(self) -> None:
@@ -114,6 +87,18 @@ class Checker:
                     ret.marked = True
                 return ret
 
+        rule = " and ".join(
+            _
+            for _ in [
+                f"({self.rule})" if self.rule else "",
+                f"({self.ratelimit})" if self.ratelimit else "",
+            ]
+            if _
+        ).strip()
+
+        if not rule:
+            raise ValueError("Rule 和 Ratelimit 都为空")
+
         code = ast.Interactive(
             body=[
                 ast.AsyncFunctionDef(
@@ -129,9 +114,7 @@ class Checker:
                     body=[
                         ast.Return(
                             value=Attri2Await()
-                            .visit(
-                                ast.parse(self.rule, filename="Checker", mode="single")
-                            )
+                            .visit(ast.parse(rule, filename="Checker", mode="single"))
                             .body[0]
                             .value
                         )
@@ -203,7 +186,8 @@ class Checker:
         self, bot: Bot, event: Event, state: T_State, *args, plugin: dict = {}, **kwargs
     ) -> Coroutine[Any, Any, IgnoredException | None]:
         _limit = Bucket()
-        _buid = f"{event.get_user_id()}_{plugin['name']}_{plugin['command']}"
+        _pbuid = f"{event.get_user_id()}_{plugin['name']}"
+        _buid = f"{_pbuid}_{plugin['command']}"
         _kwargs = {
             "bot": AwaitAttrDict(bot),
             "bucket": AwaitAttrDict(
@@ -224,7 +208,7 @@ class Checker:
             "user": AwaitAttrDict(
                 {
                     "id": event.get_user_id(),
-                    "superuser": SUPERUSER(bot=Bot, event=event),
+                    "superuser": SUPERUSER(bot=bot, event=event),
                 }
             ),
             "group": AwaitAttrDict(),
@@ -234,7 +218,21 @@ class Checker:
             "int": int,
             "str": str,
             "datetime": __import__("datetime").datetime,
+            "message": event.get_plaintext(),
         }
+        _kwargs["plugin"].bucket = AwaitAttrDict(
+            {
+                "uid": _pbuid,
+                "bucket": functools.partial(
+                    _limit.bucket,
+                    _pbuid,
+                ),
+                "status": functools.partial(
+                    _limit.status,
+                    _pbuid,
+                ),
+            }
+        )
 
         async def call_api(bot: Bot, api: str, data: dict, key: str = ""):
             ret = await bot.call_api(api=api, **data)
@@ -310,25 +308,17 @@ def reload() -> None:
                     if not isinstance(checker, dict):
                         continue
 
-                    rule = " and ".join(
-                        _
-                        for _ in [
-                            f'({checker["rule"]})' if "rule" in checker else "",
-                            (
-                                f'({checker["ratelimit"]})'
-                                if "ratelimit" in checker
-                                else ""
-                            ),
-                        ]
-                        if _
-                    )
-                    if not rule:
+                    try:
+                        c = Checker(
+                            rule=checker.get("rule", ""),
+                            ratelimit=checker.get("ratelimit", ""),
+                            reason=checker.get("reason", ""),
+                            gen=checker.get("gen", {}),
+                        )
+                    except ValueError:
                         warnings.warn(f"规则为空: {file} {command}")
                         continue
-
-                    COMMAND_RULE[file.stem][command].append(
-                        Checker(rule=rule, reason=checker.get("reason", ""))
-                    )
+                    COMMAND_RULE[file.stem][command].append(c)
 
     for file in pathlib.Path("./data/pam").glob("*/*.yaml"):
         plugin = file.parent.stem
@@ -349,28 +339,50 @@ def reload() -> None:
                     if not isinstance(checker, dict):
                         continue
 
-                    rule = " and ".join(
-                        _
-                        for _ in [
-                            f'({checker["rule"]})' if "rule" in checker else "",
-                            (
-                                f'({checker["ratelimit"]})'
-                                if "ratelimit" in checker
-                                else ""
-                            ),
-                        ]
-                        if _
-                    )
-                    if not rule:
+                    try:
+                        c = Checker(
+                            rule=checker.get("rule", ""),
+                            ratelimit=checker.get("ratelimit", ""),
+                            reason=checker.get("reason", ""),
+                            gen=checker.get("gen", {}),
+                        )
+                    except ValueError:
                         warnings.warn(f"规则为空: {file} {command}")
                         continue
+                    COMMAND_RULE[file.stem][command].append(c)
 
-                    COMMAND_RULE[plugin][command].append(
-                        Checker(
-                            rule=rule,
-                            reason=checker.get("reason", ""),
-                        )
-                    )
+
+def save() -> None:
+    # 清空 ./data/pam/
+
+    for file in itertools.chain(
+        pathlib.Path("./data/pam").glob("*/*.yaml"),
+        pathlib.Path("./data/pam").glob("*.yaml"),
+    ):
+        file.unlink()
+
+    for p in COMMAND_RULE:
+        file_name = f"./data/pam/{p}.yaml"
+        if not pathlib.Path(file_name).parent.exists():
+            pathlib.Path(file_name).parent.mkdir(parents=True)
+
+        with open(file_name, "w", encoding="utf-8") as f:
+            yaml.safe_dump(
+                {
+                    command: [
+                        {
+                            "rule": checker.rule,
+                            "ratelimit": checker.ratelimit,
+                            "reason": checker.reason,
+                            "gen": checker.gen,
+                        }
+                        for checker in checkers
+                    ]
+                    for command, checkers in COMMAND_RULE[p].items()
+                },
+                f,
+                allow_unicode=True,
+            )
 
 
 async def plugin_check(
