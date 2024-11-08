@@ -1,0 +1,3 @@
+pam:
+  - rule: user.superuser and not (8 <= datetime.now().hour <= 22)
+    reason: 老大，休息一下吧喵，都 {datetime.now().strftime("%H:%M")} 了

@@ -15,6 +15,7 @@ from nonebot.typing import T_State
 from nonebot.adapters import Bot
 from nonebot.adapters import Event
 from nonebot.exception import IgnoredException
+from nonebot.permission import SUPERUSER
 
 from .ratelimit import Bucket
 
@@ -220,13 +221,19 @@ class Checker:
             ),
             "event": AwaitAttrDict(event),
             "state": AwaitAttrDict(state),
-            "user": AwaitAttrDict({"id": event.get_user_id()}),
+            "user": AwaitAttrDict(
+                {
+                    "id": event.get_user_id(),
+                    "superuser": SUPERUSER(bot=Bot, event=event),
+                }
+            ),
             "group": AwaitAttrDict(),
             "plugin": AwaitAttrDict(plugin),
             "re": __import__("re"),
             "limit": AwaitAttrDict(Bucket()),
             "int": int,
             "str": str,
+            "datetime": __import__("datetime").datetime,
         }
 
         async def call_api(bot: Bot, api: str, data: dict, key: str = ""):

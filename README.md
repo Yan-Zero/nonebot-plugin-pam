@@ -6,7 +6,7 @@
 
 格式是 plugin_name.yaml，或者 plugin_name/xxx.yaml
 
-plugin_name 是具体限制的插件名字，特别的，\_\_all\_\_ 表示在全局启用（即，每一个指令都会检测）
+plugin_name 是具体限制的插件名字，特别的，\_\_all\_\_.yaml 表示在全局启用（即，每一个指令都会检测）
 
 ## Yaml 规范
 
@@ -31,6 +31,30 @@ pam:
 
 ratelimit 则是令牌桶管理，具体可以查看[限速配置](#限速配置)。
 
+### \_\_all\_\_
+
+位置 `./data/pam/nonebot_plugin_mysticism.yaml`
+
+```yaml
+__all__:
+  - ratelimit: limit.bucket(f"{user.id}_{plugin.name}", max=60)
+    reason: 你话好像有点多了？
+```
+
+表示对于插件 nonebot_plugin_mysticism 下面的所有指令进行限速（同一个限速桶）。
+
+---
+
+位置 `./data/pam/__all__.yaml`
+
+```yaml
+__all__:
+  - ratelimit: limit.bucket(user.id, 10, 1)
+    reason: 发太快了喵。
+```
+
+表示在全局，某一个人的发言频率过快，至多 10s 一次，无论是什么插件，什么指令都统一计算。
+
 ## 规则支持
 
 ### Top Level
@@ -49,6 +73,7 @@ ratelimit 则是令牌桶管理，具体可以查看[限速配置](#限速配置
 模块/类：
 
 - int
+- datetime，这个是 datetime.datetime
 - str
 - re
 
@@ -68,7 +93,7 @@ ratelimit 则是令牌桶管理，具体可以查看[限速配置](#限速配置
 
 ### bucket
 
-快捷访问 key 为 f"{user.id}_{plugin.name}_{plugin.command}" 的 limit.
+快捷访问 key 为 `{user.id}_{plugin.name}_{plugin.command}` 的 limit 桶.
 
 ### group
 
@@ -80,6 +105,7 @@ ratelimit 则是令牌桶管理，具体可以查看[限速配置](#限速配置
 ### user
 
 - id: 用户标识码，str
+- superuser: 是否为 SuperUser，bool
 
 Onebot V11 专属：
 

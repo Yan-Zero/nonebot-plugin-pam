@@ -1,1 +1,3 @@
-﻿
+﻿__all__:
+  - ratelimit: bucket.bucket(max=60)
+    reason: 你话好像有点多了？
