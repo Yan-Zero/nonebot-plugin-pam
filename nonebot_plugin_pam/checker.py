@@ -218,7 +218,6 @@ class Checker:
             "int": int,
             "str": str,
             "datetime": __import__("datetime").datetime,
-            "message": event.get_plaintext(),
         }
         _kwargs["plugin"].bucket = AwaitAttrDict(
             {
@@ -233,6 +232,10 @@ class Checker:
                 ),
             }
         )
+        try:
+            _kwargs["message"] = event.get_plaintext()
+        except Exception:
+            _kwargs["message"] = ""
 
         async def call_api(bot: Bot, api: str, data: dict, key: str = ""):
             ret = await bot.call_api(api=api, **data)

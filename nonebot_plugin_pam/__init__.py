@@ -9,9 +9,9 @@ from .config import Config
 from .checker import plugin_check
 from .checker import global_check
 
-from .paimon import pm
-from .server import AUTH_KEY
-from .command import COMMAND_RULE
+from .paimon import pm  # noqa: F401
+from .server import AUTH_KEY  # noqa: F401
+from .command import COMMAND_RULE  # noqa: F401
 
 
 __plugin_meta__ = PluginMetadata(
