@@ -171,9 +171,8 @@ py:
 ### Server
 
 1. 新增 Change API
-2. 新增 Delete API
+2. fetch 返回全部可用指令，而不单单是COMMAND RULE中的。
 
 ### WebUI
 
-1. 修复 Title
-2. 完善 Detail 展示
+1. 完善 Detail 展示

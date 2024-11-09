@@ -10,6 +10,7 @@ import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import checkAuthKey from "../utils";
 import Switch from "../components/Switch";
+import { produce } from "immer";
 
 const GlobalStyle = createGlobalStyle`
   * {
@@ -41,6 +42,7 @@ function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [choose, setChoose] = useState(null);
+  const [info, setInfo] = useState(null);
 
   const getAuthToken = () => `Bearer ${checkAuthKey()}`;
 
@@ -110,33 +112,22 @@ function HomePage() {
     if (!choose) {
       return true;
     }
+    var command = choose?.command;
+    if (!command) command = "__all__";
 
-    if (choose?.command) {
-      try {
-        if (rules[choose.plugin][choose.command]) {
-          const rule = rules[choose.plugin][choose.command][0];
-          if (rule?.ratelimit === "" && rule?.rule === "True") return false;
-        }
-      } catch (e) {
-        console.log(e);
-        setError("未知错误哦。");
+    try {
+      if (rules?.[choose.plugin]?.[command]) {
+        const rule = rules[choose.plugin][command][0];
+        if (rule?.ratelimit === "" && rule?.rule === "True") return false;
       }
-      return true;
-    } else {
-      try {
-        if (rules[choose.plugin]?.__all__) {
-          const rule = rules[choose.plugin]?.__all__[0];
-          if (rule?.ratelimit === "" && rule?.rule === "True") return false;
-        }
-      } catch (e) {
-        console.log(e);
-        setError("未知错误哦。");
-      }
-      return true;
+    } catch (e) {
+      console.log(e);
+      setError("未知错误哦。");
     }
+    return true;
   }
 
-  function onSwitch(is_on) {
+  function onSwitch(value) {
     if (!choose) {
       setError("请选择一个插件或命令。");
       setTimeout(() => {
@@ -144,53 +135,123 @@ function HomePage() {
       }, 1500);
       return;
     }
+    var command = choose?.command;
+    if (!command) command = "__all__";
 
-    const url = choose.command
-      ? `/pam/api/set?plugin=${choose.plugin}&command=${choose.command}`
-      : `/pam/api/set?plugin=${choose.plugin}`;
-
-    axios
-      .post(
-        url,
-        {
-          rule: is_on ? "False" : "True",
-          ratelimit: "",
-        },
-        {
-          headers: {
-            Authorization: getAuthToken(),
+    if (value) {
+      axios
+        .post(
+          "/pam/api/remove",
+          {
+            plugin: choose.plugin,
+            command: command,
+            index: 0,
           },
-        }
-      )
-      .then((response) => {
-        if (response.data.status === "success") {
-          const updatedRules = { ...rules };
-          if (choose.command) {
-            updatedRules[choose.plugin][choose.command][0].rule = is_on
-              ? "False"
-              : "True";
-          } else {
-            updatedRules[choose.plugin]["__all__"][0].rule = is_on
-              ? "False"
-              : "True";
+          {
+            headers: {
+              Authorization: getAuthToken(),
+            },
           }
-          setRules(updatedRules);
-        } else {
-          setError("更新失败。");
-        }
-      })
-      .catch((error) => {
-        console.error("Error updating rule:", error);
-        setError("更新时发生错误。");
-      });
+        )
+        .then((response) => {
+          if (response.data.success) {
+            setRules(
+              produce(rules, (draft) => {
+                const itemObj = draft?.[choose.plugin]?.[command];
+                if (itemObj) {
+                  itemObj.shift();
+                }
+              })
+            );
+          } else {
+            setError(response.data.message);
+            setTimeout(() => {
+              setError(null);
+            }, 1500);
+          }
+        })
+        .catch((error) => {
+          console.log(error);
+          setError(error.response.data.message);
+          setTimeout(() => {
+            setError(null);
+          }, 1500);
+        });
+    } else {
+      axios
+        .post(
+          "/pam/api/add",
+          {
+            plugin: choose.plugin,
+            command: command,
+            index: 0,
+            checker: {
+              rule: "True",
+              reason:
+                command === "__all__"
+                  ? `插件${choose?.command ? choose.name : choose.plugin}被关掉了。`
+                  : `指令${command}被关掉了。`,
+              ratelimit: "",
+            },
+          },
+          {
+            headers: {
+              Authorization: getAuthToken(),
+            },
+          }
+        )
+        .then((response) => {
+          if (response.data.success) {
+            setRules(
+              produce(rules, (draft) => {
+                const itemObj = draft?.[choose.plugin]?.[command];
+                if (itemObj) {
+                  itemObj.unshift({
+                    rule: "True",
+                    reason:
+                      command === "__all__"
+                        ? `插件${
+                            choose?.command ? choose.name : choose.plugin
+                          }被关掉了。`
+                        : `指令${command}被关掉了。`,
+                    ratelimit: "",
+                  });
+                } else {
+                  draft[choose.plugin][command] = [
+                    {
+                      rule: "True",
+                      reason:
+                        command === "__all__"
+                          ? `插件${
+                              choose?.command ? choose.name : choose.plugin
+                            }被关掉了。`
+                          : `指令${command}被关掉了。`,
+                      ratelimit: "",
+                    },
+                  ];
+                }
+              })
+            );
+          } else {
+            setError(response.data.message);
+            setTimeout(() => {
+              setError(null);
+            }, 1500);
+          }
+        })
+        .catch((error) => {
+          console.log(error);
+          setError(error.response.data.message);
+          setTimeout(() => {
+            setError(null);
+          }, 1500);
+        });
+    }
   }
 
   return (
     <AppContainer>
       <GlobalStyle />
-      {error && (
-        <AlertBox type="error" message={error} onClose={() => setError(null)} />
-      )}
       <div
         style={{
           display: "flex",
@@ -246,6 +307,20 @@ function HomePage() {
               padding: "10px",
             }}
           ></div>
+          {error && (
+            <AlertBox
+              type="error"
+              message={error}
+              onClose={() => setError(null)}
+            />
+          )}
+          {info && (
+            <AlertBox
+              type="info"
+              message={info}
+              onClose={() => setInfo(null)}
+            />
+          )}
         </div>
       </div>
       <Footer />

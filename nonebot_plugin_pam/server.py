@@ -13,6 +13,8 @@ from nonebot.log import logger
 from nonebot.plugin import get_loaded_plugins
 
 from .config import pam_config
+from .checker import save
+from .checker import Checker
 from .checker import COMMAND_RULE
 
 AUTH_KEY = secrets.token_hex(32)
@@ -97,6 +99,73 @@ async def _() -> None:
                 for command, checkers in COMMAND_RULE[plugin].items()
             }
         return JSONResponse({"success": True, "data": data})
+
+    @app.post(f"{pam_url_prefix}/api/remove")
+    async def _remove(r: Request) -> JSONResponse:
+        global COMMAND_RULE
+        if ret := check_auth(r):
+            return ret
+        try:
+            data = await r.json()
+            if (
+                not isinstance(data, dict)
+                or "plugin" not in data
+                or "command" not in data
+            ):
+                return JSONResponse(
+                    {"success": False, "message": "Invalid data format"},
+                    status_code=400,
+                )
+            plugin = data["plugin"]
+            command = data["command"]
+            if plugin not in COMMAND_RULE or command not in COMMAND_RULE[plugin]:
+                return JSONResponse(
+                    {"success": False, "message": "Plugin or command not found"},
+                    status_code=404,
+                )
+            index = data["index"]
+            if len(COMMAND_RULE[plugin][command]) < index:
+                return JSONResponse(
+                    {"success": False, "message": "Index out of range"},
+                    status_code=404,
+                )
+            COMMAND_RULE[plugin][command].pop(index)
+        except Exception as e:
+            return JSONResponse({"success": False, "message": str(e)}, status_code=400)
+        save()
+        return JSONResponse({"success": True})
+
+    @app.post(f"{pam_url_prefix}/api/add")
+    async def _add(r: Request) -> JSONResponse:
+        global COMMAND_RULE
+        if ret := check_auth(r):
+            return ret
+
+        try:
+            data = await r.json()
+            if (
+                not isinstance(data, dict)
+                or "plugin" not in data
+                or "command" not in data
+            ):
+                return JSONResponse(
+                    {"success": False, "message": "Invalid data format"},
+                    status_code=400,
+                )
+            plugin = data["plugin"]
+            command = data["command"]
+            index = data["index"]
+            checker = data["checker"]
+
+            if plugin not in COMMAND_RULE:
+                COMMAND_RULE[plugin] = {"__all__": []}
+            if command not in COMMAND_RULE[plugin]:
+                COMMAND_RULE[plugin][command] = []
+            COMMAND_RULE[plugin][command].insert(index, Checker(**checker))
+        except Exception as e:
+            return JSONResponse({"success": False, "message": str(e)}, status_code=400)
+        save()
+        return JSONResponse({"success": True})
 
     @app.route(f"{pam_url_prefix}/api/auth", methods=["POST", "GET"])
     async def authenticate(r: Request) -> JSONResponse:
