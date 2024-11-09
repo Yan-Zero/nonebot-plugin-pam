@@ -28,7 +28,7 @@ const AlertBoxWrapper = styled.div`
   justify-content: space-between;
   font-size: 16px;
 
-  background-color: ${(props) => props.bg_color || "#2196F3"}; // 默认蓝色
+  background-color: ${(props) => props.$bg_color || "#2196F3"}; // 默认蓝色
   color: white;
 
   &.slide-in {
@@ -51,7 +51,7 @@ const CloseButton = styled.button`
   }
 `;
 
-const AlertBox = ({ message, type, onClose }) => {
+function AlertBox({ message, type, onClose }) {
   const [isClosed, setIsClosed] = useState(false);
 
   const getBackgroundColor = () => {
@@ -78,14 +78,14 @@ const AlertBox = ({ message, type, onClose }) => {
 
   return !isClosed ? (
     <AlertBoxWrapper
-      bg_color={getBackgroundColor()}
+      $bg_color={getBackgroundColor()}
       className={isClosed ? "fade-out" : "slide-in"}
     >
       <span>{message}</span>
       <CloseButton onClick={handleClose}>×</CloseButton>
     </AlertBoxWrapper>
   ) : null;
-};
+}
 AlertBox.propTypes = {
   message: PropTypes.string,
   type: PropTypes.string,

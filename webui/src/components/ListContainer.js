@@ -1,31 +1,12 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import PropTypes from "prop-types";
-
-// 样式定义
-const ListContainer = styled.div`
-  font-family: Arial, sans-serif;
-`;
-
-const ListItem = styled.li`
-  padding: 8px 12px;
-  margin: 4px 0;
-  background-color: ${(props) => (props.selected ? "#f0f8ff" : "#fff")};
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-
-  &:hover {
-    background-color: #f1f1f1;
-  }
-`;
-
-const SubList = styled.ul`
-  margin-top: 8px;
-  list-style-type: none;
-  padding-left: 20px;
-  display: ${(props) => (props.$is_visible ? "block" : "none")};
-`;
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemText from "@mui/material/ListItemText";
+import Collapse from "@mui/material/Collapse";
+import ExpandLess from "@mui/icons-material/ExpandLess";
+import ExpandMore from "@mui/icons-material/ExpandMore";
 
 const ToggleButton = styled.button`
   background: none;
@@ -46,7 +27,7 @@ const ToggleButton = styled.button`
 `;
 
 // 组件逻辑
-const MultiLevelList = ({ data, onSelect }) => {
+function MultiLevelList({ data, onSelect }) {
   const [selectedItem, setSelectedItem] = useState(null);
   const [openItems, setOpenItems] = useState({});
 
@@ -62,31 +43,44 @@ const MultiLevelList = ({ data, onSelect }) => {
     }));
   };
 
-  const renderListItems = (items) => {
+  const renderListItems = (items, pl = 2) => {
     return items.map((item) => (
       <div key={item.id}>
-        <ListItem
+        <ListItemButton
           selected={item.id === selectedItem}
           onClick={() => handleItemClick(item)}
+          sx={{ pl: pl }}
         >
-          {item.name}
+          <ListItemText primary={item.name} />
           {item.children && item.children.length > 0 && (
             <ToggleButton onClick={() => toggleSubList(item.id)}>
-              {openItems[item.id] ? "[-]" : "[+]"}
+              {openItems[item.id] ? <ExpandLess /> : <ExpandMore />}
             </ToggleButton>
           )}
-        </ListItem>
+        </ListItemButton>
         {item.children && item.children.length > 0 && (
-          <SubList $is_visible={openItems[item.id] ? 1 : 0}>
-            {renderListItems(item.children)}
-          </SubList>
+          <Collapse in={openItems[item.id]} timeout="auto" unmountOnExit>
+            {renderListItems(item.children, pl + 2)}
+          </Collapse>
         )}
       </div>
     ));
   };
 
-  return <ListContainer>{renderListItems(data)}</ListContainer>;
-};
+  return (
+    <List
+      sx={{
+        width: "100%",
+        maxWidth: 360,
+        bgcolor: "background.paper",
+      }}
+      component="nav"
+      aria-labelledby="nested-list-subheader"
+    >
+      {renderListItems(data)}
+    </List>
+  );
+}
 
 MultiLevelList.propTypes = {
   data: PropTypes.array,

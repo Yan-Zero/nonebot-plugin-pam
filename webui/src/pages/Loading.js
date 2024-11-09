@@ -42,7 +42,7 @@ const LoadingPage = () => {
     <LoadingContainer>
       <div
         style={{
-          alignItems: "center",
+          placeItems: "center",
         }}
       >
         <Loader />
