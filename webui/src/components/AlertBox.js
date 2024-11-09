@@ -28,7 +28,7 @@ const AlertBoxWrapper = styled.div`
   justify-content: space-between;
   font-size: 16px;
 
-  background-color: ${(props) => props.bgColor || '#2196F3'}; // 默认蓝色
+  background-color: ${(props) => props.bg_color || '#2196F3'}; // 默认蓝色
   color: white;
 
   &.slide-in {
@@ -78,7 +78,7 @@ const AlertBox = ({ message, type, onClose }) => {
 
   return !isClosed ? (
     <AlertBoxWrapper
-      bgColor={getBackgroundColor()}
+      bg_color={getBackgroundColor()}
       className={isClosed ? 'fade-out' : 'slide-in'}
     >
       <span>{message}</span>

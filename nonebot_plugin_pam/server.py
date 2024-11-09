@@ -4,55 +4,128 @@
 
 import secrets
 
-import sanic.response as response
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
 
-from sanic import Sanic
-from sanic.request import Request
-from sanic.response.types import HTTPResponse
+from nonebot import get_app
+from nonebot import get_driver
+from nonebot.log import logger
+from nonebot.plugin import get_loaded_plugins
 
-# if __name__ == "__main__":
-from utils import AttrDict
+from .config import pam_config
+from .checker import COMMAND_RULE
 
-pam_config = AttrDict(
-    {
-        "pam_host": "127.0.0.1",
-        "pam_port": 8000,
-        "pam_username": "admin",
-        "pam_password": "114514.1919810",
-    }
-)
-# else:
-#     from .config import pam_config
-
-APP = Sanic("NonebotPAM")
 AUTH_KEY = secrets.token_hex(32)
+CACHE_PLUGIN = {}
+DRIVER = get_driver()
 
 
-@APP.route("v1/reload", methods=["GET", "POST"])
-async def reload(r: Request) -> HTTPResponse:
-    return response.json({"status": str(NotImplementedError())}, status=503)
-
-
-@APP.route("/api/auth", methods=["POST", "GET"])
-async def authenticate(r: Request) -> HTTPResponse:
-    if r.method == "GET":
-        if r.headers.get("Authorization", None) == f"Bearer {AUTH_KEY}":
-            return response.json({"success": True})
-        else:
-            return response.json(
-                {"success": False, "message": "Please use post to login."}, status=401
-            )
-
-    data = r.json
-    username = data.get("username")
-    password = data.get("password")
-    if username == pam_config.pam_username and password == pam_config.pam_password:
-        return response.json({"success": True, "auth_key": AUTH_KEY})
-    else:
-        return response.json(
-            {"success": False, "message": "Invalid credentials"}, status=401
+def check_auth(r: Request) -> JSONResponse | None:
+    global AUTH_KEY
+    if r.headers.get("Authorization", None) != f"Bearer {AUTH_KEY}":
+        return JSONResponse(
+            {"success": False, "message": "Unauthorized"}, status_code=401
         )
 
 
-if __name__ == "__main__":
-    APP.run(host=pam_config.pam_host, port=pam_config.pam_port)
+@DRIVER.on_startup
+async def _() -> None:
+    try:
+        app: FastAPI = get_app()
+    except Exception as e:
+        return logger.opt(colors=True).info("PAM WebUI 运行失败。", e)
+    pam_url_prefix = "/pam"
+
+    @app.route(f"{pam_url_prefix}/api/plugins", methods=["POST", "GET"])
+    async def get_plugins(r: Request) -> JSONResponse:
+        global CACHE_PLUGIN
+        if ret := check_auth(r):
+            return ret
+        if CACHE_PLUGIN:
+            return JSONResponse({"success": True, "data": CACHE_PLUGIN})
+
+        for p in get_loaded_plugins():
+            name = p.name or p.module_name
+            if not name:
+                continue
+            if p.metadata:
+                CACHE_PLUGIN[name] = {
+                    "name": p.metadata.name,
+                    "usage": p.metadata.usage,
+                    "type": p.metadata.type,
+                    "homepage": p.metadata.homepage,
+                    "supported_adapters": (
+                        list(p.metadata.supported_adapters)
+                        if p.metadata.supported_adapters
+                        else []
+                    ),
+                }
+            else:
+                CACHE_PLUGIN[name] = {
+                    "name": p.name,
+                    "usage": "暂无说明",
+                    "type": None,
+                    "homepage": None,
+                    "supported_adapters": [],
+                }
+        return JSONResponse({"success": True, "data": CACHE_PLUGIN})
+
+    @app.post(f"{pam_url_prefix}/api/fetch")
+    async def get_data(r: Request) -> JSONResponse:
+        global COMMAND_RULE
+        if ret := check_auth(r):
+            return ret
+        d: dict = await r.json()
+        if not isinstance(d, dict) or "plugin" not in d:
+            return JSONResponse(
+                {"success": False, "message": "Invalid data format"}, status_code=400
+            )
+        plugin = d["plugin"]
+        if plugin not in COMMAND_RULE:
+            data = {}
+        else:
+            data = {
+                command: [
+                    {
+                        "rule": checker.rule,
+                        "ratelimit": checker.ratelimit,
+                        "reason": checker.reason,
+                        "gen": checker.gen,
+                    }
+                    for checker in checkers
+                ]
+                for command, checkers in COMMAND_RULE[plugin].items()
+            }
+        return JSONResponse({"success": True, "data": data})
+
+    @app.route(f"{pam_url_prefix}/api/auth", methods=["POST", "GET"])
+    async def authenticate(r: Request) -> JSONResponse:
+
+        if r.method == "GET":
+            if check_auth(r):
+                return JSONResponse(
+                    {"success": False, "message": "Please use post to login."},
+                    status_code=401,
+                )
+            else:
+                return JSONResponse({"success": True})
+
+        data = await r.json()
+        username = data.get("username")
+        password = data.get("password")
+        if username == pam_config.pam_username and password == pam_config.pam_password:
+            return JSONResponse({"success": True, "auth_key": AUTH_KEY})
+        else:
+            return JSONResponse(
+                {"success": False, "message": "Invalid credentials"}, status_code=401
+            )
+
+    @app.route(f"{pam_url_prefix}/*", methods=["GET"])
+    async def react(r: Request) -> Response:
+        return JSONResponse(
+            {"success": False, "message": str(NotImplementedError())}, status_code=501
+        )
+
+    logger.opt(colors=True).info(
+        f"PAM WebUI 地址为<m>http://{DRIVER.config.host}:{DRIVER.config.port}{pam_url_prefix}</m>",
+    )

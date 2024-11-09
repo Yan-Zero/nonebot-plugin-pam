@@ -78,81 +78,80 @@ const Footer = styled.p`
 `;
 
 const LoginPage = () => {
-    const [username, setName] = useState('');
-    const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [success, setSuccess] = useState(null);
+  const [username, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
-    const navigate = useNavigate();
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
-        setSuccess(null);
+  const navigate = useNavigate();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
 
-        try {
-            const response = await fetch('/api/auth', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ username, password }),
-            });
+    try {
+      const response = await fetch('/pam/api/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
 
-            const data = await response.json();
+      const data = await response.json();
 
-            if (response.ok) {
-                Cookies.set('auth_key', data.auth_key, { expires: 7, secure: true });
-                setSuccess('登录成功，正在跳转到首页...');
-                navigate('/'); // 跳转到首页
-            } else {
-                if (response.status === 401) {
-                    setError('账号或密码错误');
-                } else {
-                    setError(data.message || '未知错误');
-                }
-            }
-        } catch (error) {
-            setError('登录时发生错误');
-            console.error(error);
-        } finally {
-            setLoading(false);
+      if (response.ok) {
+        Cookies.set('auth_key', data.auth_key, { expires: 7, secure: true });
+        setSuccess('登录成功，正在跳转到首页...');
+        navigate('/pam'); // 跳转到首页
+      } else {
+        if (response.status === 401) {
+          setError('账号或密码错误');
+        } else {
+          setError(data.message || '未知错误');
         }
-    };
+      }
+    } catch (error) {
+      setError('登录时发生错误');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return (
-        <Container>
-            <LoginBox>
-                <Title>PAM</Title>
-
-                <form onSubmit={handleSubmit}>
-                    <Input
-                        type="text"
-                        placeholder="User Name"
-                        value={username}
-                        onChange={(e) => setName(e.target.value)}
-                        required
-                    />
-                    <Input
-                        type="password"
-                        placeholder="Password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                    {error && <AlertBox type="error" message={error} onClose={() => setError(null)} />}
-                    {success && <AlertBox type="success" message={success} onClose={() => setSuccess(null)} />}
-                    <Button type="submit" disabled={loading}>
-                        {loading ? 'Logging in...' : 'Login'}
-                    </Button>
-                </form>
-                <Footer>
-                    © 2024 Yan-Zero. All rights reserved.
-                </Footer>
-            </LoginBox>
-        </Container>
-    );
+  return (
+    <Container>
+      <LoginBox>
+        <Title>PAM</Title>
+        {error && <AlertBox type="error" message={error} onClose={() => setError(null)} />}
+        {success && <AlertBox type="success" message={success} onClose={() => setSuccess(null)} />}
+        <form onSubmit={handleSubmit}>
+          <Input
+            type="text"
+            placeholder="User Name"
+            value={username}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <Input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <Button type="submit" disabled={loading}>
+            {loading ? 'Logging in...' : 'Login'}
+          </Button>
+        </form>
+        <Footer>
+          © 2024 Yan-Zero. All rights reserved.
+        </Footer>
+      </LoginBox>
+    </Container>
+  );
 };
 
 export default LoginPage;

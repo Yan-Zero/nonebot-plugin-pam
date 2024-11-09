@@ -162,8 +162,7 @@ py:
 
 ### Main
 
-1. 添加 Web UI
-2. 自动提取指令
+1. 自动提取指令
 
 ### Checker
 
@@ -171,6 +170,10 @@ py:
 
 ### Server
 
-1. 完善 Reload API
+1. 新增 Change API
 2. 新增 Delete API
-3. 新增 Change API
+
+### WebUI
+
+1. 修复 Title
+2. 完善 Detail 展示
