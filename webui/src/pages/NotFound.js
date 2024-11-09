@@ -1,6 +1,6 @@
 // NotFound.js
-import React from 'react';
-import styled from 'styled-components';
+import React from "react";
+import styled from "styled-components";
 
 // 背景渐变样式
 const Container = styled.div`
@@ -9,7 +9,7 @@ const Container = styled.div`
   align-items: center;
   height: 100vh;
   background: linear-gradient(135deg, #6e7e85, #38464d);
-  font-family: 'Arial', sans-serif;
+  font-family: "Arial", sans-serif;
   color: white;
   text-align: center;
   animation: fadeIn 1s ease-in-out;
@@ -43,7 +43,9 @@ const Button = styled.button`
   border: none;
   border-radius: 5px;
   cursor: pointer;
-  transition: transform 0.3s ease, background-color 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    background-color 0.3s ease;
 
   &:hover {
     transform: scale(1.1);
@@ -67,10 +69,16 @@ const NotFound = () => {
   return (
     <Container>
       <style>{fadeIn}</style> {/* 动画关键帧 */}
-      <div align="center">
+      <div
+        style={{
+          alignItems: "center",
+        }}
+      >
         <Title>404</Title>
         <Message>页面未找到</Message>
-        <Button onClick={() => window.location.href = '/'}>返回首页</Button>
+        <Button onClick={() => (window.location.href = "/pam")}>
+          返回首页
+        </Button>
       </div>
     </Container>
   );

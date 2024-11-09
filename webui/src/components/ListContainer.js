@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
+import React, { useState } from "react";
+import styled from "styled-components";
+import PropTypes from "prop-types";
 
 // 样式定义
 const ListContainer = styled.div`
@@ -9,7 +10,7 @@ const ListContainer = styled.div`
 const ListItem = styled.li`
   padding: 8px 12px;
   margin: 4px 0;
-  background-color: ${props => (props.selected ? '#f0f8ff' : '#fff')};
+  background-color: ${(props) => (props.selected ? "#f0f8ff" : "#fff")};
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.3s ease;
@@ -23,7 +24,7 @@ const SubList = styled.ul`
   margin-top: 8px;
   list-style-type: none;
   padding-left: 20px;
-  display: ${props => (props.is_visible ? 'block' : 'none')};
+  display: ${(props) => (props.$is_visible ? "block" : "none")};
 `;
 
 const ToggleButton = styled.button`
@@ -51,8 +52,7 @@ const MultiLevelList = ({ data, onSelect }) => {
 
   const handleItemClick = (item) => {
     setSelectedItem(item.id);
-    if (onSelect)
-      onSelect(item);
+    if (onSelect) onSelect(item);
   };
 
   const toggleSubList = (itemId) => {
@@ -72,12 +72,12 @@ const MultiLevelList = ({ data, onSelect }) => {
           {item.name}
           {item.children && item.children.length > 0 && (
             <ToggleButton onClick={() => toggleSubList(item.id)}>
-              {openItems[item.id] ? '[-]' : '[+]'}
+              {openItems[item.id] ? "[-]" : "[+]"}
             </ToggleButton>
           )}
         </ListItem>
         {item.children && item.children.length > 0 && (
-          <SubList is_visible={openItems[item.id]}>
+          <SubList $is_visible={openItems[item.id] ? 1 : 0}>
             {renderListItems(item.children)}
           </SubList>
         )}
@@ -88,6 +88,9 @@ const MultiLevelList = ({ data, onSelect }) => {
   return <ListContainer>{renderListItems(data)}</ListContainer>;
 };
 
-
+MultiLevelList.propTypes = {
+  data: PropTypes.array,
+  onSelect: PropTypes.func,
+};
 
 export default MultiLevelList;

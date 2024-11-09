@@ -1,6 +1,6 @@
 // LoadingPage.js
-import React from 'react';
-import styled, { keyframes } from 'styled-components';
+import React from "react";
+import styled, { keyframes } from "styled-components";
 
 const rotate = keyframes`
   0% {
@@ -15,18 +15,18 @@ const LoadingContainer = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh; 
-  background-color: #f0f4f8; 
-  font-family: 'Arial', sans-serif;
+  height: 100vh;
+  background-color: #f0f4f8;
+  font-family: "Arial", sans-serif;
 `;
 
 const Loader = styled.div`
-  border: 8px solid #f3f3f3; 
+  border: 8px solid #f3f3f3;
   border-top: 8px solid #3498db;
   border-radius: 50%;
   width: 50px;
   height: 50px;
-  animation: ${rotate} 2s linear infinite; 
+  animation: ${rotate} 2s linear infinite;
 `;
 
 const LoadingText = styled.p`
@@ -38,14 +38,18 @@ const LoadingText = styled.p`
 `;
 
 const LoadingPage = () => {
-    return (
-        <LoadingContainer>
-            <div align="center">
-                <Loader />
-                <LoadingText>正在加载...</LoadingText>
-            </div>
-        </LoadingContainer>
-    );
+  return (
+    <LoadingContainer>
+      <div
+        style={{
+          alignItems: "center",
+        }}
+      >
+        <Loader />
+        <LoadingText>正在加载...</LoadingText>
+      </div>
+    </LoadingContainer>
+  );
 };
 
 export default LoadingPage;

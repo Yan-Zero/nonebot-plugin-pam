@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import styled, { keyframes } from 'styled-components';
+import React, { useState } from "react";
+import styled, { keyframes } from "styled-components";
+import PropTypes from "prop-types";
 
 const slideIn = keyframes`
   0% {
@@ -11,7 +12,6 @@ const slideIn = keyframes`
     opacity: 1;
   }
 `;
-
 
 const AlertBoxWrapper = styled.div`
   position: fixed;
@@ -28,7 +28,7 @@ const AlertBoxWrapper = styled.div`
   justify-content: space-between;
   font-size: 16px;
 
-  background-color: ${(props) => props.bg_color || '#2196F3'}; // 默认蓝色
+  background-color: ${(props) => props.bg_color || "#2196F3"}; // 默认蓝色
   color: white;
 
   &.slide-in {
@@ -56,16 +56,16 @@ const AlertBox = ({ message, type, onClose }) => {
 
   const getBackgroundColor = () => {
     switch (type) {
-      case 'success':
-        return '#4CAF50';
-      case 'error':
-        return '#F44336';
-      case 'warning':
-        return '#FF9800';
-      case 'info':
-        return '#2196F3';
+      case "success":
+        return "#4CAF50";
+      case "error":
+        return "#F44336";
+      case "warning":
+        return "#FF9800";
+      case "info":
+        return "#2196F3";
       default:
-        return '#2196F3';
+        return "#2196F3";
     }
   };
 
@@ -79,12 +79,16 @@ const AlertBox = ({ message, type, onClose }) => {
   return !isClosed ? (
     <AlertBoxWrapper
       bg_color={getBackgroundColor()}
-      className={isClosed ? 'fade-out' : 'slide-in'}
+      className={isClosed ? "fade-out" : "slide-in"}
     >
       <span>{message}</span>
       <CloseButton onClick={handleClose}>×</CloseButton>
     </AlertBoxWrapper>
   ) : null;
 };
-
+AlertBox.propTypes = {
+  message: PropTypes.string,
+  type: PropTypes.string,
+  onClose: PropTypes.func,
+};
 export default AlertBox;

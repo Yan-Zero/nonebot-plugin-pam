@@ -1,5 +1,5 @@
-import React from 'react';
-import styled from 'styled-components';
+import React from "react";
+import styled from "styled-components";
 
 const FooterContainer = styled.footer`
   background-color: #333;
@@ -10,7 +10,9 @@ const FooterContainer = styled.footer`
 `;
 
 function Footer() {
-    return <FooterContainer>© 2024 Yan-Zero. All rights reserved.</FooterContainer>;
+  return (
+    <FooterContainer>© 2024 Yan-Zero. All rights reserved.</FooterContainer>
+  );
 }
 
 export default Footer;

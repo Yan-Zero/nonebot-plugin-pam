@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // 导入 useNavigate
-import Cookies from 'js-cookie';
-import styled from 'styled-components';
-import AlertBox from '../components/AlertBox';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom"; // 导入 useNavigate
+import Cookies from "js-cookie";
+import styled from "styled-components";
+import AlertBox from "../components/AlertBox";
 
 // Styled-components
 const Container = styled.div`
@@ -26,7 +26,7 @@ const LoginBox = styled.div`
 
 const Title = styled.h2`
   margin-bottom: 20px;
-  font-family: 'Arial', sans-serif;
+  font-family: "Arial", sans-serif;
   font-size: 28px;
   color: #333;
 `;
@@ -78,8 +78,8 @@ const Footer = styled.p`
 `;
 
 const LoginPage = () => {
-  const [username, setName] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setName] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -92,10 +92,10 @@ const LoginPage = () => {
     setSuccess(null);
 
     try {
-      const response = await fetch('/pam/api/auth', {
-        method: 'POST',
+      const response = await fetch("/pam/api/auth", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ username, password }),
       });
@@ -103,18 +103,18 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        Cookies.set('auth_key', data.auth_key, { expires: 7, secure: true });
-        setSuccess('登录成功，正在跳转到首页...');
-        navigate('/pam'); // 跳转到首页
+        Cookies.set("auth_key", data.auth_key, { expires: 7, secure: true });
+        setSuccess("登录成功，正在跳转到首页...");
+        navigate("/pam"); // 跳转到首页
       } else {
         if (response.status === 401) {
-          setError('账号或密码错误');
+          setError("账号或密码错误");
         } else {
-          setError(data.message || '未知错误');
+          setError(data.message || "未知错误");
         }
       }
     } catch (error) {
-      setError('登录时发生错误');
+      setError("登录时发生错误");
       console.error(error);
     } finally {
       setLoading(false);
@@ -125,8 +125,20 @@ const LoginPage = () => {
     <Container>
       <LoginBox>
         <Title>PAM</Title>
-        {error && <AlertBox type="error" message={error} onClose={() => setError(null)} />}
-        {success && <AlertBox type="success" message={success} onClose={() => setSuccess(null)} />}
+        {error && (
+          <AlertBox
+            type="error"
+            message={error}
+            onClose={() => setError(null)}
+          />
+        )}
+        {success && (
+          <AlertBox
+            type="success"
+            message={success}
+            onClose={() => setSuccess(null)}
+          />
+        )}
         <form onSubmit={handleSubmit}>
           <Input
             type="text"
@@ -143,12 +155,10 @@ const LoginPage = () => {
             required
           />
           <Button type="submit" disabled={loading}>
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? "Logging in..." : "Login"}
           </Button>
         </form>
-        <Footer>
-          © 2024 Yan-Zero. All rights reserved.
-        </Footer>
+        <Footer>© 2024 Yan-Zero. All rights reserved.</Footer>
       </LoginBox>
     </Container>
   );

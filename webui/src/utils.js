@@ -1,7 +1,7 @@
-import Cookies from 'js-cookie';
+import Cookies from "js-cookie";
 
 function checkAuthKey() {
-    return Cookies.get('auth_key');
+  return Cookies.get("auth_key");
 }
 
-export default checkAuthKey
+export default checkAuthKey;
