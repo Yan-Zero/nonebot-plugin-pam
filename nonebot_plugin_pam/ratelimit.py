@@ -32,7 +32,7 @@ class Bucket:
             self.__time__[key] = datetime.now()
             self.__rate__[key] = rate
             scheduler.add_job(
-                func=self.register,
+                func=self.refresh,
                 trigger="interval",
                 seconds=rate,
                 args=(key, max),
@@ -55,7 +55,7 @@ class Bucket:
             / 1000.0
         )
 
-    async def register(self, key, max: int) -> None:
+    async def refresh(self, key, max: int) -> None:
         """注册一个令牌桶"""
         async with self.__lock__:
             if self.__bucket__[key] >= max:

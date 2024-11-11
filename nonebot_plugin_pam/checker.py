@@ -26,6 +26,7 @@ class Checker:
     """编译后的代码"""
     reason_code: Callable[[dict], Awaitable[str]]
     """编译后的代码"""
+    limit_code: Callable[[dict], Awaitable[str]]
 
     reason: str
     """生成错误提示，并发送给用户。"""
@@ -50,9 +51,9 @@ class Checker:
             checker: 检查的代码。
             error: 生成错误提示，并发送给用户。或者就是错误提示的文本。设置为 None 或者空文本则是不发送。
         """
-        self.reason = reason
-        self.rule = rule
-        self.ratelimit = ratelimit
+        self.reason = reason.strip()
+        self.rule = rule.strip()
+        self.ratelimit = ratelimit.strip()
         self.gen = gen or {}
         self.compile()
 
@@ -87,100 +88,66 @@ class Checker:
                     ret.marked = True
                 return ret
 
-        rule = " and ".join(
-            _
-            for _ in [
-                f"({self.rule})" if self.rule else "",
-                f"({self.ratelimit})" if self.ratelimit else "",
-            ]
-            if _
-        ).strip()
+        def c(_ast: ast.mod) -> Callable[[dict], Awaitable]:
+            code = ast.Interactive(
+                body=[
+                    ast.AsyncFunctionDef(
+                        name="_",
+                        args=ast.arguments(
+                            posonlyargs=[],
+                            args=[],
+                            kwonlyargs=[],
+                            kw_defaults=[],
+                            kwarg=ast.arg(arg="kwargs"),
+                            defaults=[],
+                        ),
+                        body=[
+                            ast.Return(value=Attri2Await().visit(_ast).body[0].value)
+                        ],
+                        decorator_list=[],
+                        type_params=[],
+                    )
+                ]
+            )
+            ast.fix_missing_locations(code)
+            _ = {}
+            exec(
+                compile(
+                    code,
+                    filename="Checker",
+                    mode="single",
+                ),
+                _,
+                _,
+            )
+            return _["_"]
 
-        if not rule:
+        if not (self.rule or self.ratelimit):
             raise ValueError("Rule 和 Ratelimit 都为空")
 
-        code = ast.Interactive(
-            body=[
-                ast.AsyncFunctionDef(
-                    name="_",
-                    args=ast.arguments(
-                        posonlyargs=[],
-                        args=[],
-                        kwonlyargs=[],
-                        kw_defaults=[],
-                        kwarg=ast.arg(arg="kwargs"),
-                        defaults=[],
-                    ),
-                    body=[
-                        ast.Return(
-                            value=Attri2Await()
-                            .visit(ast.parse(rule, filename="Checker", mode="single"))
-                            .body[0]
-                            .value
-                        )
-                    ],
-                    decorator_list=[],
-                    type_params=[],
-                )
-            ]
-        )
-        ast.fix_missing_locations(code)
-        _ = {}
-        exec(
-            compile(
-                code,
+        self.rule_code = c(
+            ast.parse(
+                self.rule or "False",
                 filename="Checker",
                 mode="single",
-            ),
-            _,
-            _,
+            )
         )
-        self.rule_code = _["_"]
 
-        _ = {}
-        code = ast.Interactive(
-            body=[
-                ast.AsyncFunctionDef(
-                    name="_",
-                    args=ast.arguments(
-                        posonlyargs=[],
-                        args=[],
-                        kwonlyargs=[],
-                        kw_defaults=[],
-                        kwarg=ast.arg(arg="kwargs"),
-                        defaults=[],
-                    ),
-                    body=[
-                        ast.Return(
-                            value=Attri2Await()
-                            .visit(
-                                ast.parse(
-                                    f"f{repr(self.reason)}",
-                                    filename="f-string",
-                                    mode="single",
-                                )
-                            )
-                            .body[0]
-                            .value
-                        )
-                    ],
-                    decorator_list=[],
-                    type_params=[],
-                )
-            ]
+        self.reason_code = c(
+            ast.parse(
+                f"f{repr(self.reason)}",
+                filename="f-string",
+                mode="single",
+            )
         )
-        ast.fix_missing_locations(code)
-        _ = {}
-        exec(
-            compile(
-                code,
+
+        self.limit_code = c(
+            ast.parse(
+                self.limit_code or "False",
                 filename="Checker",
                 mode="single",
-            ),
-            _,
-            _,
+            )
         )
-        self.reason_code = _["_"]
 
     def __call__(
         self, bot: Bot, event: Event, state: T_State, *args, plugin: dict = {}, **kwargs
@@ -218,6 +185,7 @@ class Checker:
             "int": int,
             "str": str,
             "datetime": __import__("datetime").datetime,
+            "IgnoredException": IgnoredException,
         }
         _kwargs["plugin"].bucket = AwaitAttrDict(
             {
@@ -276,8 +244,18 @@ class Checker:
             except ImportError:
                 pass
 
-            if await self.rule_code(**_kwargs):
-                return IgnoredException(reason=await self.reason_code(**_kwargs))
+            if ret := await self.rule_code(**_kwargs):
+                return (
+                    IgnoredException(reason=await self.reason_code(**_kwargs))
+                    if not isinstance(ret, IgnoredException)
+                    else ret
+                )
+            if ret := await self.limit_code(**_kwargs):
+                return (
+                    IgnoredException(reason=await self.reason_code(**_kwargs))
+                    if not isinstance(ret, IgnoredException)
+                    else ret
+                )
 
         return wrapper()
 
