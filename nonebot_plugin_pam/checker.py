@@ -127,7 +127,7 @@ class Checker:
 
         self.rule_code = c(
             ast.parse(
-                self.rule or "False",
+                self.rule if self.rule else ("True" if self.ratelimit else "False"),
                 filename="Checker",
                 mode="single",
             )
@@ -143,7 +143,7 @@ class Checker:
 
         self.limit_code = c(
             ast.parse(
-                self.limit_code or "False",
+                self.ratelimit if self.ratelimit else "False",
                 filename="Checker",
                 mode="single",
             )
@@ -187,6 +187,9 @@ class Checker:
             "datetime": __import__("datetime").datetime,
             "IgnoredException": IgnoredException,
         }
+        _kwargs["event"].type = event.__repr_name__()
+        print(event.__repr_name__())
+
         _kwargs["plugin"].bucket = AwaitAttrDict(
             {
                 "uid": _pbuid,
@@ -245,17 +248,18 @@ class Checker:
                 pass
 
             if ret := await self.rule_code(**_kwargs):
-                return (
-                    IgnoredException(reason=await self.reason_code(**_kwargs))
-                    if not isinstance(ret, IgnoredException)
-                    else ret
-                )
-            if ret := await self.limit_code(**_kwargs):
-                return (
-                    IgnoredException(reason=await self.reason_code(**_kwargs))
-                    if not isinstance(ret, IgnoredException)
-                    else ret
-                )
+                if not self.ratelimit:
+                    return (
+                        IgnoredException(reason=await self.reason_code(**_kwargs))
+                        if not isinstance(ret, IgnoredException)
+                        else ret
+                    )
+                if ret := await self.limit_code(**_kwargs):
+                    return (
+                        IgnoredException(reason=await self.reason_code(**_kwargs))
+                        if not isinstance(ret, IgnoredException)
+                        else ret
+                    )
 
         return wrapper()
 

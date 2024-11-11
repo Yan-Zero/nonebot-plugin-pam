@@ -86,7 +86,9 @@ __all__:
 
 ### event
 
-对 Evnet 的包装，和 Nonebot2 的没啥区别。
+对 Evnet 的包装，和 Nonebot2 的没啥区别，但是多了字段 `type`
+
+- type: event 的类型，str
 
 ### state
 
