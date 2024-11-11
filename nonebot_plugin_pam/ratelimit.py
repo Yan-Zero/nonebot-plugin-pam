@@ -48,7 +48,7 @@ class Bucket:
         __now__ = datetime.now()
         return (
             max(
-                self.__rate__[key]
+                self.__rate__[key] * 1000
                 - (__now__ - self.__time__.get(key, __now__)).microseconds,
                 0,
             )
