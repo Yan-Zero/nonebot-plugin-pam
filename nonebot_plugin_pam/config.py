@@ -9,5 +9,7 @@ class Config(BaseModel):
     pam_username: str = Field(default="admin")
     pam_password: str = Field(default="114514.1919810")
 
+    redis_url: str = Field(default="")
+
 
 pam_config = get_plugin_config(Config)
