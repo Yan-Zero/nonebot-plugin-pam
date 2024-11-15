@@ -30,6 +30,7 @@ if MODE == "Redis":
             def __new__(cls) -> Self:
                 if not hasattr(cls, "ins"):
                     cls.ins = super(Bucket, cls).__new__(cls)
+                    cls.ins.__command__ = {}
                 return cls.ins
 
             def bucket(

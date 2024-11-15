@@ -188,8 +188,6 @@ class Checker:
             "IgnoredException": IgnoredException,
         }
         _kwargs["event"].type = event.__repr_name__()
-        print(event.__repr_name__())
-
         _kwargs["plugin"].bucket = AwaitAttrDict(
             {
                 "uid": _pbuid,

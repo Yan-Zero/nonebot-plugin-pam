@@ -37,7 +37,7 @@ ratelimit 则是令牌桶管理，具体可以查看[限速配置](#限速配置
 
 ```yaml
 __all__:
-  - ratelimit: limit.bucket(f"{user.id}_{plugin.name}", max=60)
+  - ratelimit: limit.bucket(f"{user.id}_{plugin.name}", max_burst=60)
     reason: 你话好像有点多了？
 ```
 
@@ -146,19 +146,20 @@ py:
     reason: 还有 {bucket.status():.2f} 秒哦。
 ```
 
-### limit.bucket(key, rate: float, max: int) -> bool
+### limit.bucket(key: Hashable, period: int, max_burst: int, count_pre_period: int) -> bool
 
 - key: 限定是什么桶，注意，key = 1 和 key = '1' 是两个桶。
-- rate: 速率限制，也就是经过多少秒添加一个令牌，默认 60.
-- max: 令牌桶最大容量，默认 3.
+- period: 令牌添加间隔，也就是经过多少秒添加 count_pre_period 个令牌，默认 60.
+- max_burst: 令牌桶最大容量，默认 3.
+- count_pre_period: 每个周期添加的令牌数量
 
 返回值为 True 意味着当前处于速率限制。
 
-### limit.status(key) -> float
+### limit.status(key: Hashable) -> float
 
 - key: 桶的key
 
-返回值为还有多久的时间（单位 s）
+返回值为还有多久的时间（单位 s）添加下一批令牌，如果为0则是当前还有令牌。
 
 ## TODO LIST
 
