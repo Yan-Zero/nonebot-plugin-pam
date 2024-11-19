@@ -4,9 +4,6 @@
 
 import secrets
 
-from fastapi import FastAPI, Request, Response
-from fastapi.responses import JSONResponse
-
 from nonebot import get_app
 from nonebot import get_driver
 from nonebot.log import logger
@@ -22,21 +19,25 @@ CACHE_PLUGIN = {}
 DRIVER = get_driver()
 
 
-def check_auth(r: Request) -> JSONResponse | None:
-    global AUTH_KEY
-    if r.headers.get("Authorization", None) != f"Bearer {AUTH_KEY}":
-        return JSONResponse(
-            {"success": False, "message": "Unauthorized"}, status_code=401
-        )
-
-
 @DRIVER.on_startup
 async def _() -> None:
     try:
-        app: FastAPI = get_app()
+        from fastapi import FastAPI, Request, Response
+        from fastapi.responses import JSONResponse
+
+        app = get_app()
+        if not isinstance(app, FastAPI):
+            raise TypeError("PAM WebUI 需要使用 FastAPI 驱动器。")
     except Exception as e:
         return logger.opt(colors=True).info("PAM WebUI 运行失败。", e)
     pam_url_prefix = "/pam"
+
+    def check_auth(r: Request) -> JSONResponse | None:
+        global AUTH_KEY
+        if r.headers.get("Authorization", None) != f"Bearer {AUTH_KEY}":
+            return JSONResponse(
+                {"success": False, "message": "Unauthorized"}, status_code=401
+            )
 
     @app.route(f"{pam_url_prefix}/api/plugins", methods=["POST", "GET"])
     async def get_plugins(r: Request) -> JSONResponse:
