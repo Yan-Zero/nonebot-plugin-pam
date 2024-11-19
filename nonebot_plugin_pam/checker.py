@@ -18,6 +18,7 @@ from nonebot.exception import IgnoredException
 from nonebot.permission import SUPERUSER
 
 from .utils import AwaitAttrDict
+from .config import pam_config
 from .ratelimit import Bucket
 
 
@@ -36,7 +37,7 @@ class Checker:
     """限速。True或者其他什么等价的，就抛出 IgnoredException。"""
 
     gen: dict
-    """机器生成用来标记的，为空则表示处于高级模式（必须手动到./data/pam下面修改）"""
+    """机器生成用来标记的，为空则表示处于高级模式（必须手动到pam_config.pam_config_path下面修改）"""
 
     def __init__(
         self,
@@ -274,7 +275,7 @@ def reload() -> None:
             "__all__": [],
         },
     }
-    for file in pathlib.Path("./data/pam").glob("*.yaml"):
+    for file in pathlib.Path(pam_config.pam_config_path).glob("*.yaml"):
         COMMAND_RULE[file.stem] = {
             "__all__": [],
         }
@@ -303,7 +304,7 @@ def reload() -> None:
                         continue
                     COMMAND_RULE[file.stem][command].append(c)
 
-    for file in pathlib.Path("./data/pam").glob("*/*.yaml"):
+    for file in pathlib.Path(pam_config.pam_config_path).glob("*/*.yaml"):
         plugin = file.parent.stem
         if plugin not in COMMAND_RULE:
             COMMAND_RULE[plugin] = {
@@ -336,18 +337,18 @@ def reload() -> None:
 
 
 def save() -> None:
-    # 清空 ./data/pam/
+    # 清空 pam_config.pam_config_path
 
     for file in itertools.chain(
-        pathlib.Path("./data/pam").glob("*/*.yaml"),
-        pathlib.Path("./data/pam").glob("*.yaml"),
+        pathlib.Path(pam_config.pam_config_path).glob("*/*.yaml"),
+        pathlib.Path(pam_config.pam_config_path).glob("*.yaml"),
     ):
         file.unlink()
 
     for p in COMMAND_RULE:
-        file_name = f"./data/pam/{p}.yaml"
-        if not pathlib.Path(file_name).parent.exists():
-            pathlib.Path(file_name).parent.mkdir(parents=True)
+        file_name = pathlib.Path(pam_config.pam_config_path) / f"{p}.yaml"
+        if not file_name.parent.exists():
+            file_name.parent.mkdir(parents=True)
 
         with open(file_name, "w", encoding="utf-8") as f:
             yaml.safe_dump(

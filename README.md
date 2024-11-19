@@ -2,7 +2,7 @@
 
 ## Rule 编写
 
-规则文件一般放置于 ./data/pam/ 文件夹下面（仿造[文件夹例子](examples.data/pam)）
+规则文件一般放置于 "pam_config.config_path"/ 文件夹下面（仿造[文件夹例子](examples.data/pam)）
 
 格式是 plugin_name.yaml，或者 plugin_name/xxx.yaml
 
@@ -33,7 +33,7 @@ ratelimit 则是令牌桶管理，具体可以查看[限速配置](#限速配置
 
 ### \_\_all\_\_
 
-位置 `./data/pam/nonebot_plugin_mysticism.yaml`
+位置 `"pam_config.config_path"/nonebot_plugin_mysticism.yaml`
 
 ```yaml
 __all__:
@@ -45,7 +45,7 @@ __all__:
 
 ---
 
-位置 `./data/pam/__all__.yaml`
+位置 `"pam_config.config_path"/__all__.yaml`
 
 ```yaml
 __all__:

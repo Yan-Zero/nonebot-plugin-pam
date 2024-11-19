@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nonebot-plugin-pam"
-version = "0.2.2"
+version = "0.2.3"
 description = "Nonebot 2 的权限与访问管理。"
 authors = ["Yan <1964649083@qq.com>"]
 license = "Apache License 2.0"

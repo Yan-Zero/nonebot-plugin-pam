@@ -10,6 +10,7 @@ class Config(BaseModel):
     pam_password: str = Field(default="114514.1919810")
 
     redis_url: str = Field(default="")
+    pam_config_path: str = Field(default="./data/pam")
 
 
 pam_config = get_plugin_config(Config)
